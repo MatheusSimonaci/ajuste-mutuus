@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PR #47 — Ajuste Mutuus Agent · GPT-4o → GPT-5.2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; }
+  body {
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0d1117; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+</style>
+<template id="__bundler_thumbnail" data-bg-color="#0d1117">
+  <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+    <rect width="800" height="500" fill="#0d1117"/>
+    <!-- PR badge -->
+    <rect x="40" y="40" width="90" height="24" rx="12" fill="#6e40c9"/>
+    <rect x="40" y="80" width="420" height="18" rx="4" fill="#e6edf3" opacity="0.9"/>
+    <rect x="40" y="108" width="260" height="12" rx="3" fill="#8b949e" opacity="0.5"/>
+    <!-- Stats bar -->
+    <rect x="40" y="140" width="560" height="44" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <rect x="60" y="156" width="30" height="12" rx="2" fill="#e6edf3" opacity="0.8"/>
+    <rect x="130" y="156" width="30" height="12" rx="2" fill="#3fb950" opacity="0.9"/>
+    <rect x="200" y="156" width="30" height="12" rx="2" fill="#f85149" opacity="0.9"/>
+    <rect x="270" y="156" width="30" height="12" rx="2" fill="#8957e5" opacity="0.9"/>
+    <!-- Diff cards -->
+    <rect x="40" y="210" width="560" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <rect x="40" y="210" width="560" height="20" rx="6" fill="#1a4f2a"/>
+    <rect x="55" y="216" width="6" height="8" rx="1" fill="#3fb950"/>
+    <rect x="68" y="218" width="200" height="4" rx="2" fill="#7ce38b" opacity="0.7"/>
+    <rect x="40" y="272" width="560" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <rect x="40" y="272" width="560" height="20" rx="6" fill="#4a1014"/>
+    <rect x="55" y="278" width="6" height="8" rx="1" fill="#f85149"/>
+    <rect x="68" y="280" width="160" height="4" rx="2" fill="#f85149" opacity="0.7"/>
+    <rect x="40" y="334" width="560" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <rect x="40" y="334" width="560" height="20" rx="6" fill="#1a4f2a"/>
+  </svg>
+</template>
+</head>
+<body>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#8957e5",
+  "mergeColor": "#6e40c9",
+  "addColor": "#1a4f2a",
+  "removeColor": "#4a1014"
+}/*EDITMODE-END*/;
+
+const optimizations = [
+  {
+    id: "opt-1",
+    num: 1,
+    file: "prompt/rules.md",
+    title: "Guardrails explícitos de prolixidade",
+    summary: "Proíbe múltiplas perguntas por mensagem e coleta de dados fora do roteiro.",
+    lines: [
+      { type: "ctx", text: "## Regras de Comunicação" },
+      { type: "ctx", text: "" },
+      { type: "ctx", text: "- Respostas em no máximo duas sentenças." },
+      { type: "rem", text: "- Finaliza com uma pergunta para dar continuidade ao script." },
+      { type: "add", text: "- **Uma pergunta. Sempre.** Nunca faça mais de uma pergunta por mensagem." },
+      { type: "add", text: "- **Não colete dados fora do roteiro.** Faixa de valor, vigência, estado, tipo de garantia — nada disso." },
+      { type: "add", text: "- Finaliza com **a pergunta do passo atual do roteiro, nada mais**." },
+    ],
+    note: "O GPT-5.2 interpretava 'finaliza com uma pergunta' como margem para embutir duas perguntas numa frase densa.",
+    caseRef: "Caso: Simone / CONPASUL",
+    stats: { add: 3, rem: 1 },
+  },
+  {
+    id: "opt-2",
+    num: 2,
+    file: "prompt/roteiro.md",
+    title: "Instrução de escopo por passo no header",
+    summary: "Restringe o agente a responder apenas com o que cada passo exige.",
+    lines: [
+      { type: "ctx", text: "## Roteiro de Vendas" },
+      { type: "ctx", text: "" },
+      { type: "rem", text: "A cada resposta, analise a conversa e determine a resposta conforme os passos abaixo." },
+      { type: "add", text: "A cada resposta, identifique em qual passo está e responda **apenas com o que aquele passo exige**. Nada além disso." },
+      { type: "ctx", text: "" },
+      { type: "ctx", text: "Realize os passos na ordem proposta." },
+    ],
+    note: "'Determinar a resposta' era amplo o suficiente para o modelo adicionar o que achasse relevante.",
+    caseRef: null,
+    stats: { add: 1, rem: 1 },
+  },
+  {
+    id: "opt-3",
+    num: 3,
+    file: "prompt/roteiro.md",
+    title: "Leitura de contexto antes do Passo 1",
+    summary: "Previne repetição do pitch já enviado via template de WhatsApp.",
+    lines: [
+      { type: "ctx", text: "## Passo 1 — Apresentação e abertura" },
+      { type: "ctx", text: "" },
+      { type: "add", text: "**Antes de agir:** leia o histórico da conversa. Se o contexto da Mutuus e o motivo do contato já foram apresentados na mensagem anterior, **não os repita** e vá direto à pergunta sobre a operação." },
+      { type: "ctx", text: "" },
+      { type: "ctx", text: "Apresente-se como Murilo da Mutuus Seguros." },
+      { type: "ctx", text: "Explique que está em contato com quem já cotou para ficar mais próximo." },
+      { type: "ctx", text: "Pergunta: Como está a operação da empresa hoje?" },
+    ],
+    note: "Intervenção cirúrgica: não altera o Passo 1 quando o template não foi enviado.",
+    caseRef: "Caso: Samu / CONTRATO DE GESTÃO SAMU",
+    stats: { add: 1, rem: 0 },
+  },
+  {
+    id: "opt-4",
+    num: 4,
+    file: "prompt/roteiro.md",
+    title: "Bloqueio explícito de coleta no Passo 3",
+    summary: "Remove a instrução ambígua que autorizava coleta livre de dados.",
+    lines: [
+      { type: "ctx", text: "## Passo 3 — Cotação" },
+      { type: "ctx", text: "" },
+      { type: "rem", text: "Receba todas as informações. Não tenha pressa." },
+      { type: "add", text: "**Não colete nenhuma outra informação além do código da cotação.**" },
+      { type: "add", text: "Qualquer dado adicional é responsabilidade do especialista que assumirá a seguir." },
+      { type: "ctx", text: "" },
+      { type: "ctx", text: "Aguarde o código gerado pelo formulário online antes de acionar o humano." },
+    ],
+    note: "'Receba todas as informações' foi lido como autorização para perguntar o que achasse relevante.",
+    caseRef: "Caso: Simone / CONPASUL",
+    stats: { add: 2, rem: 1 },
+  },
+  {
+    id: "opt-5",
+    num: 5,
+    file: "pipeline/n8n-template.js",
+    title: "Formatação do nome no template de abertura",
+    summary: "Transforma 'SIMONE APARECIDA COSTA' em 'Simone' antes do envio.",
+    lines: [
+      { type: "ctx", text: "// Prepara variáveis para o template de abertura" },
+      { type: "rem", text: 'const nomeContato = crm.fields.nome_completo;' },
+      { type: "add", text: 'const nomeContato = crm.fields.nome_completo' },
+      { type: "add", text: '  .split(" ")[0]' },
+      { type: "add", text: '  .toLowerCase()' },
+      { type: "add", text: '  .replace(/^./, c => c.toUpperCase());' },
+      { type: "ctx", text: "" },
+      { type: "ctx", text: '// "LUCAS FERNANDES" → "Lucas"' },
+      { type: "ctx", text: '// "SIMONE APARECIDA COSTA" → "Simone"' },
+    ],
+    note: "Alteração no pipeline n8n, isolada do prompt principal. Sem risco de regressão.",
+    caseRef: null,
+    stats: { add: 4, rem: 1 },
+  },
+];
+
+const commits = [
+  { hash: "a3f9c12", msg: "fix(rules): guardrails explícitos de prolixidade", author: "ajuste-mutuus", time: "há 2h" },
+  { hash: "b8e4d71", msg: "fix(roteiro): escopo por passo no header", author: "ajuste-mutuus", time: "há 2h" },
+  { hash: "c1a7f83", msg: "fix(passo1): leitura de contexto antes de agir", author: "ajuste-mutuus", time: "há 1h" },
+  { hash: "d5b2e94", msg: "fix(passo3): bloqueia coleta de dados fora do escopo", author: "ajuste-mutuus", time: "há 1h" },
+  { hash: "e9c6a05", msg: "fix(n8n): formata primeiro nome antes do envio", author: "ajuste-mutuus", time: "há 45min" },
+];
+
+function Badge({ children, color, bg }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 10px', borderRadius: 20,
+      fontSize: 12, fontWeight: 600,
+      color: color || '#fff', background: bg || '#6e40c9',
+      fontFamily: "'DM Sans', sans-serif",
+      letterSpacing: '0.01em',
+    }}>
+      {children}
+    </span>
+  );
+}
+
+function DiffLine({ line, addColor, removeColor }) {
+  const bg = line.type === 'add' ? addColor : line.type === 'rem' ? removeColor : 'transparent';
+  const prefix = line.type === 'add' ? '+' : line.type === 'rem' ? '−' : ' ';
+  const textColor = line.type === 'add' ? '#7ce38b' : line.type === 'rem' ? '#f85149' : '#8b949e';
+  return (
+    <div style={{
+      display: 'flex', background: bg,
+      borderLeft: line.type === 'add' ? '2px solid #2ea043' : line.type === 'rem' ? '2px solid #f85149' : '2px solid transparent',
+    }}>
+      <span style={{
+        width: 28, flexShrink: 0, textAlign: 'center',
+        color: line.type === 'add' ? '#2ea043' : line.type === 'rem' ? '#f85149' : '#484f58',
+        fontFamily: 'JetBrains Mono', fontSize: 12, lineHeight: '22px', userSelect: 'none',
+      }}>{prefix}</span>
+      <span style={{
+        fontFamily: 'JetBrains Mono', fontSize: 12.5, lineHeight: '22px',
+        color: textColor, padding: '0 8px', whiteSpace: 'pre', flex: 1,
+      }}>{line.text}</span>
+    </div>
+  );
+}
+
+function OptCard({ opt, tweaks, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen || false);
+  const [viewed, setViewed] = useState(false);
+
+  const handleToggle = () => {
+    setOpen(v => !v);
+    if (!viewed) setViewed(true);
+  };
+
+  const total = opt.stats.add + opt.stats.rem;
+
+  return (
+    <div style={{
+      border: '1px solid #30363d',
+      borderRadius: 8,
+      overflow: 'hidden',
+      transition: 'border-color 0.2s',
+    }}
+    onMouseEnter={e => e.currentTarget.style.borderColor = '#484f58'}
+    onMouseLeave={e => e.currentTarget.style.borderColor = '#30363d'}
+    >
+      {/* Header */}
+      <div
+        onClick={handleToggle}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px', background: '#161b22',
+          cursor: 'pointer', userSelect: 'none',
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{
+          fontFamily: 'JetBrains Mono', fontSize: 11,
+          color: open ? '#e6edf3' : '#8b949e',
+          transition: 'transform 0.2s',
+          display: 'inline-block',
+          transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+        }}>▶</span>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#58a6ff', flex: 'none' }}>
+          {opt.file}
+        </span>
+        <span style={{ flex: 1, fontSize: 12.5, color: '#8b949e', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          — {opt.title}
+        </span>
+        <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          {opt.stats.add > 0 && <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#3fb950' }}>+{opt.stats.add}</span>}
+          {opt.stats.rem > 0 && <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#f85149' }}>−{opt.stats.rem}</span>}
+        </span>
+        <span style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+          {Array.from({ length: Math.min(total, 5) }).map((_, i) => (
+            <span key={i} style={{
+              width: 8, height: 8, borderRadius: 1,
+              background: i < opt.stats.add ? '#238636' : '#da3633',
+            }} />
+          ))}
+        </span>
+        {!viewed && <span style={{ width: 6, height: 6, borderRadius: '50%', background: tweaks.accentColor, flexShrink: 0 }} />}
+      </div>
+
+      {/* Diff body */}
+      {open && (
+        <div>
+          {opt.note && (
+            <div style={{
+              background: '#0d1117', borderBottom: '1px solid #21262d',
+              padding: '10px 14px 10px 42px',
+              fontSize: 12.5, color: '#8b949e', lineHeight: 1.5,
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+            }}>
+              <span style={{ color: '#e3b341', flexShrink: 0 }}>ℹ</span>
+              <span>{opt.note}{opt.caseRef && <span style={{ marginLeft: 8, color: tweaks.accentColor, fontFamily: 'JetBrains Mono', fontSize: 11 }}>← {opt.caseRef}</span>}</span>
+            </div>
+          )}
+          <div style={{ background: '#0d1117', fontFamily: 'JetBrains Mono' }}>
+            <div style={{ padding: '4px 0 2px', borderBottom: '1px solid #21262d' }}>
+              {opt.lines.map((line, i) => (
+                <DiffLine key={i} line={line} addColor={tweaks.addColor} removeColor={tweaks.removeColor} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [tweaks] = useState(TWEAKS_DEFAULTS);
+  const [tab, setTab] = useState('conversation');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setMounted(true), 60);
+    // Tweaks protocol
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode') document.getElementById('tweaks-panel').style.display = 'flex';
+      if (e.data?.type === '__deactivate_edit_mode') document.getElementById('tweaks-panel').style.display = 'none';
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  }, []);
+
+  const tabs = [
+    { id: 'conversation', label: 'Conversa', count: 2 },
+    { id: 'commits', label: 'Commits', count: 5 },
+    { id: 'files', label: 'Arquivos alterados', count: 3 },
+  ];
+
+  const totalAdds = optimizations.reduce((a, o) => a + o.stats.add, 0);
+  const totalRems = optimizations.reduce((a, o) => a + o.stats.rem, 0);
+
+  return (
+    <div style={{ maxWidth: 980, margin: '0 auto', padding: '0 16px 80px' }}>
+
+      {/* Top bar */}
+      <div style={{
+        borderBottom: '1px solid #21262d',
+        padding: '12px 0',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        opacity: mounted ? 1 : 0, transition: 'opacity 0.4s',
+      }}>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, color: '#58a6ff', letterSpacing: '-0.01em' }}>
+          mutuus-seguros / <strong>agente-prospeccao</strong>
+        </span>
+        <span style={{ fontSize: 12, color: '#8b949e' }}>22 abr 2026</span>
+      </div>
+
+      {/* PR Title block */}
+      <div style={{
+        padding: '28px 0 20px',
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? 'translateY(0)' : 'translateY(8px)',
+        transition: 'all 0.5s 0.05s',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <h1 style={{
+            fontSize: 24, fontWeight: 600, color: '#e6edf3',
+            lineHeight: 1.3, flex: 1, minWidth: 200,
+          }}>
+            Migração GPT-4o → GPT-5.2: 5 ajustes cirúrgicos no agente de prospecção
+          </h1>
+          <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, color: '#8b949e', paddingTop: 5 }}>#47</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+          <Badge bg={tweaks.mergeColor} color="#fff">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M5 3.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm0 2.122a2.25 2.25 0 10-1.5 0v.878A2.25 2.25 0 005.75 8.5h1.5v2.128a2.251 2.251 0 101.5 0V8.5h1.5a2.25 2.25 0 002.25-2.25v-.878a2.25 2.25 0 10-1.5 0v.878a.75.75 0 01-.75.75h-4.5A.75.75 0 015 6.25v-.878zm3.75 7.378a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm3-8.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"/>
+            </svg>
+            Merged
+          </Badge>
+          <span style={{ fontSize: 13, color: '#8b949e' }}>
+            <span style={{ color: '#58a6ff', fontWeight: 500 }}>ajuste-mutuus</span>
+            {' '}fez merge de{' '}
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, background: '#1c2128', padding: '1px 6px', borderRadius: 4, color: '#79c0ff' }}>fix/gpt5-guardrails</span>
+            {' '}em{' '}
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, background: '#1c2128', padding: '1px 6px', borderRadius: 4, color: '#79c0ff' }}>main</span>
+          </span>
+        </div>
+
+        {/* Labels */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+          {['guardrails', 'llm-migration', 'whatsapp-agent', 'prompt-engineering'].map(label => (
+            <span key={label} style={{
+              fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 12,
+              border: `1px solid ${tweaks.accentColor}55`, color: tweaks.accentColor,
+              fontFamily: 'JetBrains Mono',
+            }}>{label}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div style={{
+        display: 'flex', gap: 24, padding: '14px 18px',
+        background: '#161b22', border: '1px solid #30363d',
+        borderRadius: 8, marginBottom: 20,
+        opacity: mounted ? 1 : 0,
+        transition: 'opacity 0.5s 0.1s',
+      }}>
+        {[
+          { label: 'arquivos', value: '3', color: '#e6edf3' },
+          { label: 'adições', value: `+${totalAdds}`, color: '#3fb950' },
+          { label: 'remoções', value: `−${totalRems}`, color: '#f85149' },
+          { label: 'otimizações', value: '5', color: tweaks.accentColor },
+        ].map(s => (
+          <div key={s.label} style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 600, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: '#8b949e', marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div style={{
+        borderBottom: '1px solid #21262d', marginBottom: 20,
+        display: 'flex', gap: 0,
+        opacity: mounted ? 1 : 0, transition: 'opacity 0.5s 0.15s',
+      }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '10px 16px', fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+            color: tab === t.id ? '#e6edf3' : '#8b949e',
+            borderBottom: tab === t.id ? `2px solid ${tweaks.accentColor}` : '2px solid transparent',
+            display: 'flex', alignItems: 'center', gap: 6,
+            transition: 'color 0.15s',
+          }}>
+            {t.label}
+            <span style={{
+              background: tab === t.id ? '#30363d' : '#21262d',
+              color: tab === t.id ? '#e6edf3' : '#8b949e',
+              borderRadius: 10, padding: '1px 7px', fontSize: 11,
+              fontFamily: 'JetBrains Mono',
+            }}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Conversa */}
+      {tab === 'conversation' && (
+        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start',
+          opacity: mounted ? 1 : 0, transition: 'opacity 0.5s 0.2s' }}>
+
+          {/* Main */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+
+            {/* Body */}
+            <div style={{
+              border: '1px solid #30363d', borderRadius: 8,
+              overflow: 'hidden', marginBottom: 20,
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: '#161b22', padding: '10px 16px',
+                borderBottom: '1px solid #21262d',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: `linear-gradient(135deg, ${tweaks.accentColor}, #58a6ff)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0,
+                  }}>AM</div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>ajuste-mutuus</span>
+                  <span style={{ fontSize: 12, color: '#8b949e' }}>autor · há 2h</span>
+                </div>
+                <Badge bg="#161b22" color="#8b949e">
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10 }}>⊕ Membro</span>
+                </Badge>
+              </div>
+
+              <div style={{ padding: '20px 20px', lineHeight: 1.7, fontSize: 14, color: '#e6edf3' }}>
+                <p style={{ marginBottom: 16 }}>
+                  Este PR consolida as cinco otimizações aplicadas ao prompt do agente de prospecção da Mutuus Seguros após a migração do <code style={codeStyle}>GPT-4o</code> para o <code style={codeStyle}>GPT-5.2</code>. Todas as alterações são cirúrgicas — não modificam o roteiro nem os objetivos do agente.
+                </p>
+
+                <p style={{ marginBottom: 12, fontWeight: 600, color: '#c9d1d9' }}>Causa raiz</p>
+                <p style={{ marginBottom: 16, padding: '10px 14px', background: '#161b22', borderRadius: 6, borderLeft: '3px solid #e3b341', fontSize: 13, color: '#8b949e' }}>
+                  O GPT-4o é literal e restritivo. O GPT-5.2 é proativo e antecipatório — completa o que o prompt não diz explicitamente. O mesmo prompt gerou comportamentos indesejados em produção porque os guardrails implícitos que funcionavam com o 4o não foram suficientes para o 5.2.
+                </p>
+
+                <p style={{ marginBottom: 10, fontWeight: 600, color: '#c9d1d9' }}>Mudanças</p>
+                <ul style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                  {optimizations.map(o => (
+                    <li key={o.id} style={{ fontSize: 13 }}>
+                      <span style={{ color: tweaks.accentColor, fontFamily: 'JetBrains Mono', fontSize: 11 }}>#{o.num}</span>
+                      {' '}<strong>{o.title}</strong> — {o.summary}
+                    </li>
+                  ))}
+                </ul>
+
+                <p style={{ fontSize: 13, color: '#8b949e', padding: '10px 14px', background: '#161b22', borderRadius: 6, borderLeft: `3px solid ${tweaks.accentColor}` }}>
+                  A Otimização 5 foi aplicada no pipeline do n8n, isolada do prompt principal. Sem risco de regressão.
+                </p>
+              </div>
+            </div>
+
+            {/* Review comment */}
+            <div style={{
+              border: '1px solid #30363d', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: '#161b22', padding: '10px 16px',
+                borderBottom: '1px solid #21262d',
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', background: '#21262d', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#8b949e',
+                }}>MS</div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>mutuus-seguros</span>
+                <span style={{ fontSize: 12, color: '#8b949e' }}>há 1h</span>
+                <Badge bg="#1a4721" color="#3fb950">✓ Aprovado</Badge>
+              </div>
+              <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#8b949e', lineHeight: 1.7 }}>
+                Validado com os casos da Simone e do Samu. Comportamento corrigido nos dois cenários.
+                Aguardando produção para monitorar nas próximas conversas.
+              </div>
+            </div>
+
+            {/* Merge event */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 0', borderTop: '1px solid #21262d',
+            }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: tweaks.mergeColor, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', flexShrink: 0,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="white">
+                  <path d="M5 3.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm0 2.122a2.25 2.25 0 10-1.5 0v.878A2.25 2.25 0 005.75 8.5h1.5v2.128a2.251 2.251 0 101.5 0V8.5h1.5a2.25 2.25 0 002.25-2.25v-.878a2.25 2.25 0 10-1.5 0v.878a.75.75 0 01-.75.75h-4.5A.75.75 0 015 6.25v-.878zm3.75 7.378a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm3-8.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"/>
+                </svg>
+              </div>
+              <span style={{ fontSize: 13, color: '#8b949e' }}>
+                <span style={{ color: '#58a6ff', fontWeight: 500 }}>ajuste-mutuus</span> fez merge — há 45min
+              </span>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div style={{ width: 230, flexShrink: 0 }}>
+            <SidebarSection title="Revisores">
+              <SidebarItem avatar="MS" name="mutuus-seguros" badge="✓" badgeColor="#2ea043" />
+            </SidebarSection>
+            <SidebarSection title="Responsável">
+              <SidebarItem avatar="AM" name="ajuste-mutuus" accent={tweaks.accentColor} />
+            </SidebarSection>
+            <SidebarSection title="Modelo">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#8b949e' }}>origem</span>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#f85149' }}>GPT-4o</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#8b949e' }}>destino</span>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#3fb950' }}>GPT-5.2</span>
+                </div>
+              </div>
+            </SidebarSection>
+            <SidebarSection title="Casos cobertos">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {['Simone / CONPASUL', 'Samu / CTR. GESTÃO SAMU'].map(c => (
+                  <div key={c} style={{ fontSize: 11.5, color: '#8b949e', fontFamily: 'JetBrains Mono', lineHeight: 1.4 }}>{c}</div>
+                ))}
+              </div>
+            </SidebarSection>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Commits */}
+      {tab === 'commits' && (
+        <div style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.4s' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {commits.map((c, i) => (
+              <div key={c.hash} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '12px 16px', background: i % 2 === 0 ? '#0d1117' : '#161b22',
+                border: '1px solid #21262d', borderRadius: i === 0 ? '8px 8px 0 0' : i === commits.length - 1 ? '0 0 8px 8px' : 0,
+                borderBottom: i < commits.length - 1 ? 'none' : '1px solid #21262d',
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: `linear-gradient(135deg, ${tweaks.accentColor}, #58a6ff)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 700, color: '#fff',
+                }}>AM</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, color: '#e6edf3', marginBottom: 2 }}>{c.msg}</div>
+                  <div style={{ fontSize: 11.5, color: '#8b949e' }}>
+                    <span style={{ color: '#58a6ff' }}>{c.author}</span> · {c.time}
+                  </div>
+                </div>
+                <span style={{
+                  fontFamily: 'JetBrains Mono', fontSize: 11,
+                  color: '#8b949e', background: '#21262d',
+                  padding: '3px 8px', borderRadius: 5,
+                  border: '1px solid #30363d', flexShrink: 0,
+                }}>{c.hash}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Files */}
+      {tab === 'files' && (
+        <div style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.4s' }}>
+          {/* Summary bar */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', background: '#161b22',
+            border: '1px solid #30363d', borderRadius: 8, marginBottom: 14,
+            fontSize: 13, color: '#8b949e',
+          }}>
+            <span>Mostrando <strong style={{ color: '#e6edf3' }}>3 arquivos alterados</strong> com</span>
+            <span style={{ color: '#3fb950' }}>+{totalAdds} adições</span>
+            <span>e</span>
+            <span style={{ color: '#f85149' }}>−{totalRems} remoções</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {optimizations.map((opt, i) => (
+              <OptCard key={opt.id} opt={opt} tweaks={tweaks} defaultOpen={i === 0} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tweaks Panel */}
+      <div id="tweaks-panel" style={{
+        display: 'none', position: 'fixed', bottom: 24, right: 24,
+        background: '#161b22', border: '1px solid #30363d',
+        borderRadius: 10, padding: '16px 18px', zIndex: 9999,
+        flexDirection: 'column', gap: 12, width: 220,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#e6edf3', letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'JetBrains Mono' }}>Tweaks</div>
+        {[
+          { key: 'accentColor', label: 'Cor de destaque' },
+          { key: 'addColor', label: 'Fundo adição' },
+          { key: 'removeColor', label: 'Fundo remoção' },
+        ].map(({ key, label }) => (
+          <label key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#8b949e' }}>
+            {label}
+            <input type="color" defaultValue={tweaks[key]}
+              onChange={e => {
+                tweaks[key] = e.target.value;
+                window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: e.target.value } }, '*');
+              }}
+              style={{ width: 28, height: 22, border: 'none', borderRadius: 4, cursor: 'pointer', background: 'none' }}
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const codeStyle = {
+  fontFamily: 'JetBrains Mono', fontSize: 12,
+  background: '#1c2128', padding: '1px 6px', borderRadius: 4, color: '#79c0ff',
+};
+
+function SidebarSection({ title, children }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{
+        fontSize: 11, fontWeight: 600, color: '#8b949e',
+        textTransform: 'uppercase', letterSpacing: '0.06em',
+        marginBottom: 10, paddingBottom: 6,
+        borderBottom: '1px solid #21262d',
+      }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function SidebarItem({ avatar, name, badge, badgeColor, accent }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{
+        width: 24, height: 24, borderRadius: '50%',
+        background: accent ? `linear-gradient(135deg, ${accent}, #58a6ff)` : '#21262d',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 9, fontWeight: 700, color: '#8b949e', flexShrink: 0,
+      }}>{avatar}</div>
+      <span style={{ fontSize: 12.5, color: '#e6edf3' }}>{name}</span>
+      {badge && <span style={{ marginLeft: 'auto', fontSize: 11, color: badgeColor }}>{badge}</span>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<div id="root"></div>
+</body>
+</html>
